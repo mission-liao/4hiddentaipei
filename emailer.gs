@@ -110,7 +110,7 @@ function cb_full_(customer, sheet) {
   var the_max = sheet.getRange(Conf.info["MAX"][0], Conf.info["MAX"][1]).getValue();
   var the_total = sheet.getRange(Conf.info["報名成功人數"][0], Conf.info["報名成功人數"][1]).getValue();
   
-  if (the_total && the_max) {
+  if (the_total != null && the_max != null) {
     return the_total >= the_max;
   } else {
     return false;

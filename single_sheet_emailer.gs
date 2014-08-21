@@ -1,9 +1,9 @@
-i// global configuration
+// global configuration
 var Conf = {
   sheet_name: "資料",               // pattern of sheet name to check
   tmpl_name: {
-    finished: "報名程序完成",     // document name of 'finihsed' email template, should be located in the same folder
-    full: "額滿通知",             // document name of 'full' email template, should be located in the same folder
+    finished: "[email樣板]報名程序完成",     // document name of 'finihsed' email template, should be located in the same folder
+    full: "[email樣板]額滿通知",             // document name of 'full' email template, should be located in the same folder
   },
   tmpl_patt: /from:\s(.*)\ntitle:\s(.*)\nbody:\n((.|\n)*)/,   // pattern of email template
   price_patt: /(\$\d+)/,          // pattern of price
@@ -16,7 +16,13 @@ var Conf = {
   },
 
   // info to be resolved.
-  resolve: ["路線", "集合地點內容介紹", "日期", "開始時間", "伴走志工"],
+  resolve: {
+    "路線": [2, 3],
+    "集合地點內容介紹": [2, 5],
+    "日期": [2, 1],
+    "開始時間": [2, 2],
+    "伴走志工": [2, 4],
+  },
 
   log_sheet: "log",
   is_debug: false,               // won't send mail in debug mode
@@ -51,17 +57,15 @@ function log_(msg) {
 }
 
 
-function resolve_(s, customer) {
+function resolve_(s, sheet, customer) {
   // this function resolve '[...]' in string.
   var ret = s;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
   
   for (var key in Conf.resolve) {
-    var patt = "(\\[" + Conf.resolve[key] + "\\])";
-    
-    var range = ss.getRangeByName(Conf.resolve[key]);
+    var patt = "(\\[" + key + "\\])";
+    var range = sheet.getRange(Conf.resolve[key][0], Conf.resolve[key][1]);
     var val = range.getValue();
-    
+   
     // special case for Date object
     if (val instanceof Date) {
       var fmt = range.getNumberFormat();
@@ -84,11 +88,11 @@ function resolve_(s, customer) {
 }
 
 
-function prepareEmail_(customer, tmpl) {
+function prepareEmail_(customer, sheet, tmpl) {
   var ret = {
     to: customer[Const.email],
-    title: resolve_(tmpl.title, customer),
-    body: resolve_(tmpl.body, customer),
+    title: resolve_(tmpl.title, sheet, customer),
+    body: resolve_(tmpl.body, sheet, customer),
   };
   
   return ret;
@@ -148,7 +152,7 @@ function handleSheet_(sheet, tmpl, cb) {
     }
 
     // prepare email content by resolving those variables.
-    var email = prepareEmail_(curC, tmpl);
+    var email = prepareEmail_(curC, sheet, tmpl);
 
     try {
       if (Conf.is_debug == false) {
