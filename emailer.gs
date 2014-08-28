@@ -1,9 +1,9 @@
 // global configuration
 var Conf = {
-  name_patt: /酒\d+/,             // pattern of sheet name to check
+  name_patt: /\D+\d{8}/,             // pattern of sheet name to check
   tmpl_name: {
-    finished: "報名程序完成",       // document name of 'finihsed' email template, should be located in the same folder
-    full: "額滿通知",             // document name of 'full' email template, should be located in the same folder
+    finished: "[email樣板]報名程序完成",       // document name of 'finihsed' email template, should be located in the same folder
+    full: "[email樣板]額滿通知",             // document name of 'full' email template, should be located in the same folder
   },
   tmpl_patt: /from:\s(.*)\ntitle:\s(.*)\nbody:\n((.|\n)*)/,   // pattern of email template
   price_patt: /(\$\d+)/,          // pattern of price
