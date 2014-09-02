@@ -3,7 +3,8 @@ var Conf = {
   name_patt: /\D+\d+/,             // pattern of sheet name to check
   tmpl_name: {
     finished: "[email樣板]報名程序完成",       // document name of 'finihsed' email template, should be located in the same folder
-    full: "[email樣板]額滿通知",             // document name of 'full' email template, should be located in the same folder
+    full: "[email樣板]額滿通知",              // document name of 'full' email template, should be located in the same folder
+    reminder: "[email樣板] 繳費提醒",         // document name of 'reminder' email template, should be located in the same folder
   },
   tmpl_patt: /from:\s(.*)\ntitle:\s(.*)\nbody:\n((.|\n)*)/,   // pattern of email template
   price_patt: /(\$\d+)/,          // pattern of price
@@ -13,6 +14,7 @@ var Conf = {
   info: {
     "MAX": [4, 2],
     "報名成功人數": [4, 4],
+    "報名人數": [3, 1],
   },
 
   // info to be resolved.
@@ -22,6 +24,9 @@ var Conf = {
     "日期": [2, 1],
     "開始時間": [2, 2],
     "伴走志工": [2, 4],
+    "繳費期限": [2, 6],
+    "繳費時間": [2, 7],
+    "轉帳資訊": [3, 3],
   },
 
   log_sheet: "log",
@@ -35,6 +40,7 @@ var Const = {
   paid_status: 2,       // index to paid status
   email: 5,             // index to email address
   price: 7,             // index to paid price
+  name: 10,             // index to customer's name
 };
 
 
@@ -84,6 +90,12 @@ function resolve_(s, sheet, customer) {
   var patt = /\[票價\]/;
   ret = ret.replace(patt, customer[Const.price]);
   
+  var patt =  /\[姓名\]/;
+  ret = ret.replace(patt, customer[Const.name]);
+  
+  var patt =  /\[導覽單號\]/;
+  ret = ret.replace(patt, sheet.getName());
+  
   return ret;
 }
 
@@ -103,7 +115,8 @@ function cb_full_(customer, sheet) {
   if (customer[Const.sent] == "V") return false;
   if (customer[Const.email] == "") return false;
   if (customer[Const.status] != "") return false;
-  if (customer[Const.paid_status] == "已付全額" || customer[Const.paid_status] == "已付部分") return false; 
+  if (customer[Const.paid_status] != "") return false; 
+  //if (customer[Const.paid_status] == "已付全額" || customer[Const.paid_status] == "已付部分") return false; 
   
   // it seems useless to check sheet for each customer...
   // but currently, it's more intuitive to keep code here.
@@ -130,6 +143,16 @@ function cb_finished_(customer, _) {
   return true;
 }
 
+function cb_reminder_(customer, _) {
+  // skip those customers already got a email
+  if (customer[Const.status] != "") return false;
+  if (customer[Const.sent] == "V") return false;
+  if (customer[Const.email] == "") return false;
+  
+  return true;
+}
+
+
 function handleSheet_(name, tmpl, cb) {
   // make sure it's the sheet we need to process by checking pattern of name.
   if (null == name.match(Conf.name_patt)) {
@@ -150,7 +173,7 @@ function handleSheet_(name, tmpl, cb) {
 
       // trim useless words in paid price of each customer
       var matched = curC[Const.price].match(Conf.price_patt);
-      if (matched != null) {
+/*      if (matched != null) {
         curC[Const.price] = matched[0];
       } else {
         log_("[error] unable to locate price in string: [" + curC[Const.price] + "]");
@@ -158,7 +181,7 @@ function handleSheet_(name, tmpl, cb) {
         // skip this customer.
         continue;
       }
-
+*/
       // prepare email content by resolving those variables.
       var email = prepareEmail_(curC, sheet, tmpl);
 
@@ -167,7 +190,7 @@ function handleSheet_(name, tmpl, cb) {
           MailApp.sendEmail(email.to, email.title, email.body);
           
           // update email sent status
-          sheet.getRange(i+Conf.customer_rec[0], 1).setValue("V");
+          if (cb != cb_reminder_) sheet.getRange(i+Conf.customer_rec[0], 1).setValue("V");
         }
         
         log_("[info] mail sent: [" + email.to + "]");
@@ -235,3 +258,21 @@ function formSubmit(e) {
   
   log_("end of formSubmit");
 }
+
+// entry point
+function reminder(e) {
+  log_("begin of reminder");
+  
+  // load email template
+  var tmpl = getEmailTemplate_(Conf.tmpl_name.reminder);
+  if (tmpl != null) {  
+    // looping through each sheet
+    var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      handleSheet_(sheets[i].getName(), tmpl, cb_reminder_);
+    }
+  }
+  
+  log_("end of reminder");
+}
+
