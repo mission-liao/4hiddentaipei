@@ -2,9 +2,10 @@
 var Conf = {
   name_patt: /\D+\d+/,             // pattern of sheet/form name to check
   tmpl_name: {
-    finished: "[email樣板]報名程序完成",       // document name of 'finihsed' email template, should be located in the same folder
+    finished: "[email樣板]報名程序完成",      // document name of 'finihsed' email template, should be located in the same folder
     full: "[email樣板]額滿通知",              // document name of 'full' email template, should be located in the same folder
     reminder: "[email樣板] 繳費提醒",         // document name of 'reminder' email template, should be located in the same folder
+    in_progress: "[email樣板]報名進行中"      // document name of 'in progress' email template, should be located in the same folder
   },
   tmpl_patt: /from:\s(.*)\ntitle:\s(.*)\nbody:\n((.|\n)*)/,   // pattern of email template
   price_patt: /(\$\d+)/,          // pattern of price
@@ -34,13 +35,23 @@ var Conf = {
   is_log: true,                  // logging
 };
 
+// indexes in sheet
 var Const = {
   sent: 0,              // index to sent flat
   status: 1,            // index to status
   paid_status: 2,       // index to paid status
   email: 5,             // index to email address
   price: 7,             // index to paid price
+  last_5_digits: 8,     // index to the last 5 digits
   name: 10,             // index to customer's name
+};
+
+// indexes in e.values of form submit event.
+var Const_Event = {
+  email: 1,             // index to email address
+  price: 3,             // index to paid price
+  last_5_digits: 4,     // index to the last 5 digits
+  name:  6,             // index to customer's name
 };
 
 
@@ -63,7 +74,7 @@ function log_(msg) {
 }
 
 
-function resolve_(s, sheet, customer) {
+function resolve_(s, sheet, customer, customer_idx) {
   // this function resolve '[...]' in string.
   var ret = s;
   
@@ -88,23 +99,26 @@ function resolve_(s, sheet, customer) {
   
   // resolve 票價
   var patt = /\[票價\]/;
-  ret = ret.replace(patt, customer[Const.price]);
+  ret = ret.replace(patt, customer[customer_idx.price]);
   
   var patt =  /\[姓名\]/;
-  ret = ret.replace(patt, customer[Const.name]);
+  ret = ret.replace(patt, customer[customer_idx.name]);
   
   var patt =  /\[導覽單號\]/;
   ret = ret.replace(patt, sheet.getName());
+  
+  var patt = /\[帳號五碼]/
+  ret = ret.replace(patt, customer[customer_idx.last_5_digits]);
   
   return ret;
 }
 
 
-function prepareEmail_(customer, sheet, tmpl) {
+function prepareEmail_(customer, customer_idx, sheet, tmpl) {
   var ret = {
-    to: customer[Const.email],
-    title: resolve_(tmpl.title, sheet, customer),
-    body: resolve_(tmpl.body, sheet, customer),
+    to: customer[customer_idx.email],
+    title: resolve_(tmpl.title, sheet, customer, customer_idx),
+    body: resolve_(tmpl.body, sheet, customer, customer_idx),
   };
   
   return ret;
@@ -183,7 +197,7 @@ function handleSheet_(name, tmpl, cb) {
       }
 */
       // prepare email content by resolving those variables.
-      var email = prepareEmail_(curC, sheet, tmpl);
+      var email = prepareEmail_(curC, Const, sheet, tmpl);
 
       try {
         if (Conf.is_debug == false) {
@@ -247,7 +261,7 @@ function getFormById_(id) {
 
 
 // entry point
-function timeDriven(e) {
+function notify_finished(e) {
   log_("begin of timeDriven");
   
   // load email template
@@ -265,7 +279,7 @@ function timeDriven(e) {
 
 
 // entry point
-function formSubmit(e) {
+function notify_full(e) {
   log_("begin of formSubmit");
   
   // load email template
@@ -328,4 +342,29 @@ function close_form(e) {
     form.setAcceptingResponses(false);
   }
   log_("end of close_form")
+}
+
+// entry point of form submit
+function form_submit(e) {
+  log_("begin of form_submit");
+  
+  // load email template
+  var tmpl = getEmailTemplate_(Conf.tmpl_name.in_progress);
+  if (tmpl == null) {
+    log_("unable to load email template:" + Conf.tmpl_name.in_progress);
+    return;
+  }
+  
+  var email = prepareEmail_(e.values, Const_Event, e.range.getSheet(), tmpl);
+  try {
+    if (Conf.is_debug == false) {
+      MailApp.sendEmail(email.to, email.title, email.body);
+    }
+        
+    log_("[info] mail sent: [" + email.to + "]");
+  } catch (e) {
+    log_("[error] unable to send email: [" + e.message + "]");
+  }
+  
+  log_("end of form_submit");    
 }
