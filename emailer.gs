@@ -262,7 +262,7 @@ function getFormById_(id) {
 
 // entry point
 function notify_finished(e) {
-  log_("begin of timeDriven");
+  log_("begin of notify_finished");
   
   // load email template
   var tmpl = getEmailTemplate_(Conf.tmpl_name.finished)
@@ -274,13 +274,13 @@ function notify_finished(e) {
     }
   }
   
-  log_("end of timeDriven");
+  log_("end of notify_finished");
 }
 
 
 // entry point
 function notify_full(e) {
-  log_("begin of formSubmit");
+  log_("begin of notify_full");
   
   // load email template
   var tmpl = getEmailTemplate_(Conf.tmpl_name.full);
@@ -292,7 +292,7 @@ function notify_full(e) {
     }
   }
   
-  log_("end of formSubmit");
+  log_("end of notify_full");
 }
 
 // entry point
