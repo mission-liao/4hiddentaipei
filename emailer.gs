@@ -1,6 +1,6 @@
 // global configuration
 var Conf = {
-  name_patt: /\D+\d+/,             // pattern of sheet name to check
+  name_patt: /\D+\d+/,             // pattern of sheet/form name to check
   tmpl_name: {
     finished: "[email樣板]報名程序完成",       // document name of 'finihsed' email template, should be located in the same folder
     full: "[email樣板]額滿通知",              // document name of 'full' email template, should be located in the same folder
@@ -224,6 +224,28 @@ function getEmailTemplate_(name) {
 }
 
 
+function getFormById_(id) {
+  // here shows another way to get parent folder
+  // not sure which way is correct, comparing to getEmailTemplate_
+  var iter_folder = DriveApp.getFileById(SpreadsheetApp.getActive().getId()).getParents();
+  var parent_folder = null
+  if (iter_folder.hasNext()) {
+    parent_folder = iter_folder.next();
+  }
+  if (!parent_folder) return null;
+
+  var iter_file = parent_folder.getFilesByType("application/vnd.google-apps.form")
+  while (iter_file.hasNext()) {
+    var f = iter_file.next();
+    if (-1 === f.getName().indexOf(id)) continue;
+
+    return FormApp.openById(f.getId());
+  }
+  
+  return null;
+}
+
+
 // entry point
 function timeDriven(e) {
   log_("begin of timeDriven");
@@ -276,3 +298,34 @@ function reminder(e) {
   log_("end of reminder");
 }
 
+// entry point of form close
+function close_form(e) {
+  log_("begin of close_form")
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    // check if this sheet is for customer record (containing ID in name)
+    var id = sheets[i].getName().match(Conf.name_patt);
+    if (!!id) {
+      id = id[0];
+    } else {
+      continue;
+    }
+    
+    // check if we need to close the corresponding form
+    var the_max = sheets[i].getRange(Conf.info["MAX"][0], Conf.info["MAX"][1]).getValue();
+    var the_total = sheets[i].getRange(Conf.info["報名成功人數"][0], Conf.info["報名成功人數"][1]).getValue();
+    
+    if (the_total < the_max) continue;
+    
+    // find form
+    var form = getFormById_(id);
+    if (!form) {
+      log_("can't find form for sheet:" + sheet[i].getName());
+      continue;
+    }
+
+    log_("turn off form:" + form.getTitle());
+    form.setAcceptingResponses(false);
+  }
+  log_("end of close_form")
+}
